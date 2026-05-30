@@ -6,9 +6,9 @@ won't accept a vote without it.
 
 ## Install (unpacked)
 
-1. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
+1. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`, `opera://extensions`).
 2. Enable **Developer mode** (top-right toggle).
-3. Click **Load unpacked** and pick the `karuta-vote-extension` folder.
+3. Click **Load unpacked** and pick the `karuta-auto-vote` folder.
 4. Make sure you're already logged into Discord in the same browser.
 
 The extension will:
