@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Karuta Top.gg Auto-Voter",
-  "version": "1.0.0",
-  "description": "Opens the Karuta vote page every 12 hours and clicks the vote button. You still solve the captcha.",
+  "version": "1.2.0",
+  "description": "Polls the top.gg vote page every 10 min in a hidden tab to read the real cooldown, then opens it for voting when ready. Hidden tab closes itself once read.",
   "permissions": ["alarms", "storage", "tabs"],
   "host_permissions": ["https://top.gg/*"],
   "background": {
