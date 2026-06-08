@@ -7,6 +7,8 @@ const CHECK_INTERVAL_MIN = 10;       // poll top.gg every 10 min for the real co
 const CHECK_TIMEOUT_MS = 60_000;     // close the hidden check tab if it stalls (content.js polls up to 50s)
 const VOTE_ALARM = "karuta-vote";
 const CHECK_ALARM = "karuta-cooldown-check";
+const CHECK_TIMEOUT_ALARM = "karuta-check-timeout";
+const BADGE_CLEAR_ALARM = "karuta-badge-clear";
 
 const log = (...a) => console.log("[karuta-vote]", ...a);
 const warn = (...a) => console.warn("[karuta-vote]", ...a);
@@ -30,6 +32,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await openVoteTab();
   } else if (alarm.name === CHECK_ALARM) {
     await runCooldownCheck();
+  } else if (alarm.name === CHECK_TIMEOUT_ALARM) {
+    await handleCheckTimeout();
+  } else if (alarm.name === BADGE_CLEAR_ALARM) {
+    setBadge("", "#000");
   }
 });
 
@@ -66,23 +72,32 @@ async function runCooldownCheck() {
   await chrome.storage.local.set({ checkTabId: tab.id, checkTabOpenedAt: Date.now() });
 
   // Fallback: if no cooldown report arrives within the timeout, close the tab
-  // so it doesn't sit around eating memory.
-  setTimeout(async () => {
-    const { checkTabId } = await chrome.storage.local.get("checkTabId");
-    if (checkTabId !== tab.id) return;
-    warn("check tab timed out, closing");
-    await chrome.storage.local.set({
-      cooldownLastError: "timeout reading top.gg cooldown",
-      cooldownLastErrorAt: Date.now(),
-    });
-    await chrome.tabs.remove(tab.id).catch(() => {});
-    await chrome.storage.local.remove("checkTabId");
-  }, CHECK_TIMEOUT_MS);
+  // so it doesn't sit around eating memory. Use an alarm, not setTimeout — an
+  // MV3 service worker can be terminated while idle and a pending setTimeout
+  // would never fire, orphaning the hidden tab.
+  chrome.alarms.create(CHECK_TIMEOUT_ALARM, {
+    delayInMinutes: CHECK_TIMEOUT_MS / 60_000,
+  });
+}
+
+async function handleCheckTimeout() {
+  const { checkTabId } = await chrome.storage.local.get("checkTabId");
+  if (!checkTabId) return; // a report already arrived and cleared it
+  warn("check tab timed out, closing");
+  await chrome.storage.local.set({
+    cooldownLastError: "timeout reading top.gg cooldown",
+    cooldownLastErrorAt: Date.now(),
+  });
+  await chrome.tabs.remove(checkTabId).catch(() => {});
+  await chrome.storage.local.remove("checkTabId");
 }
 
 async function handleCooldownReport(cooldownMs, tabId, tabUrl) {
   const isCheckTab = !!tabUrl && tabUrl.includes("#check");
   log("cooldown reported:", cooldownMs, "isCheckTab:", isCheckTab);
+
+  // A report arrived, so the check succeeded — cancel the pending timeout.
+  await chrome.alarms.clear(CHECK_TIMEOUT_ALARM);
 
   await chrome.storage.local.set({
     cooldownLastCheckedAt: Date.now(),
@@ -121,7 +136,9 @@ async function handleVoteSuccess() {
   // up with the precise cooldown read off the page.
   await scheduleVoteAlarm(VOTE_INTERVAL_MIN);
   setBadge("✓", "#2a9d4a");
-  setTimeout(() => setBadge("", "#000"), 5 * 60 * 1000);
+  // Clear the badge via an alarm — a 5-minute setTimeout would outlive the
+  // service worker and never fire, leaving the ✓ stuck.
+  chrome.alarms.create(BADGE_CLEAR_ALARM, { delayInMinutes: 5 });
 }
 
 async function scheduleVoteAlarm(delayMin) {

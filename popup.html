@@ -25,14 +25,32 @@
       font-weight: 600;
     }
     button:hover { background: #e02855; }
+    button.secondary { background: #555; }
+    button.secondary:hover { background: #444; }
+    button:disabled { opacity: 0.6; cursor: default; }
     .note { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.3; }
+    .error {
+      display: none;
+      font-size: 11px;
+      color: #b00020;
+      background: #fde7ea;
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-top: 8px;
+      line-height: 1.3;
+    }
+    .error.show { display: block; }
   </style>
 </head>
 <body>
   <h1>Karuta Vote</h1>
   <div class="row"><span>Last voted</span><span id="last">—</span></div>
   <div class="row"><span>Next attempt</span><span id="next">—</span></div>
+  <div class="row"><span>Cooldown checked</span><span id="checked">—</span></div>
+  <div class="row"><span>Cooldown source</span><span id="source">—</span></div>
   <button id="voteNow">Vote now</button>
+  <button id="checkNow" class="secondary">Check cooldown now</button>
+  <div id="error" class="error"></div>
   <div class="note">You'll still need to solve the captcha on the page.</div>
   <script src="popup.js"></script>
 </body>
