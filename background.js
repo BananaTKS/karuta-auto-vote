@@ -41,7 +41,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "voted") {
-    handleVoteSuccess().then(() => sendResponse({ ok: true }));
+    handleVoteSuccess(sender.tab?.id).then(() => sendResponse({ ok: true }));
     return true;
   }
   if (msg.type === "voteNow") {
@@ -130,7 +130,7 @@ async function openVoteTab() {
   setBadge("…", "#888");
 }
 
-async function handleVoteSuccess() {
+async function handleVoteSuccess(tabId) {
   await chrome.storage.local.set({ lastVotedAt: Date.now() });
   // Schedule a fallback 12h alarm — the next periodic check will tighten it
   // up with the precise cooldown read off the page.
@@ -139,6 +139,14 @@ async function handleVoteSuccess() {
   // Clear the badge via an alarm — a 5-minute setTimeout would outlive the
   // service worker and never fire, leaving the ✓ stuck.
   chrome.alarms.create(BADGE_CLEAR_ALARM, { delayInMinutes: 5 });
+
+  // Close the vote tab so it doesn't linger and eat memory. A short delay lets
+  // the "thanks for voting" confirmation stay visible for a moment; a few
+  // seconds is safe here (unlike the long timers above) because the worker
+  // stays alive while this message is being handled.
+  if (tabId) {
+    setTimeout(() => chrome.tabs.remove(tabId).catch(() => {}), 4000);
+  }
 }
 
 async function scheduleVoteAlarm(delayMin) {
